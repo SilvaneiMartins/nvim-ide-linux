@@ -1,171 +1,346 @@
-# Neovim IDE – Configuração com Lazy.nvim
+# IDE Neovim para Linux - Arch Linux
 
-Este repositório contém uma configuração modular do **Neovim** usando o gerenciador de plugins **[lazy.nvim](https://github.com/folke/lazy.nvim)**. O objetivo é transformar o Neovim em um ambiente de desenvolvimento completo (IDE-like), organizado e fácil de manter.
+Configuracao pessoal do **Neovim** para uso como IDE no **Linux**, com foco em **Arch Linux**. A estrutura e os comandos deste README assumem que o projeto esta instalado em:
 
----
-
-## 📂 Estrutura do projeto
-
+```bash
+~/.config/nvim
 ```
-~/.config/nvim/   # (Linux/macOS)
-%LOCALAPPDATA%/nvim/   # (Windows)
 
-├── init.lua                 # Ponto de entrada da configuração
+A configuracao usa **lazy.nvim** para gerenciar plugins e organiza tudo em modulos Lua dentro de `lua/martins`.
+
+## Recursos
+
+- Dashboard inicial com `alpha-nvim`
+- Gerenciador de plugins com `lazy.nvim`
+- LSP com `nvim-lspconfig`, `mason.nvim` e `mason-lspconfig.nvim`
+- Autocomplete com `blink.cmp` e suporte legado a `nvim-cmp`
+- Syntax highlight e indentacao com `nvim-treesitter`
+- Busca de arquivos/texto com `telescope.nvim`
+- Explorador de arquivos com `nvim-tree.lua`
+- Formatacao com `conform.nvim`
+- Lint com `nvim-lint`
+- Git com `gitsigns.nvim`, `git-blame.nvim` e `lazygit.nvim`
+- UI com `lualine.nvim`, `bufferline.nvim`, `noice.nvim`, `notify.nvim` e `which-key.nvim`
+- Suporte para Lua, TypeScript/JavaScript, HTML, CSS, Tailwind, Svelte, GraphQL, Prisma, Python, Rust, C/C++, Go e CMake
+
+## Estrutura
+
+```text
+~/.config/nvim
+├── init.lua
+├── lazy-lock.json
+├── README.md
 └── lua
     └── martins
         ├── core
-        │   ├── init.lua     # Carrega opções básicas e keymaps
-        │   ├── options.lua  # Configurações de editor (indentação, cores, etc.)
-        │   └── keymaps.lua  # Mapeamentos de teclas globais
+        │   ├── init.lua
+        │   ├── options.lua
+        │   ├── keymaps.lua
+        │   ├── theme.lua
+        │   └── highlights.lua
+        ├── lazy.lua
         └── plugins
-            ├── lazy.lua     # Configuração do lazy.nvim e imports
-            ├── lspconfig.lua# Configuração dos servidores LSP + keymaps
-            ├── cmp.lua      # Configuração do nvim-cmp + snippets + lspkind
-            ├── telescope.lua# Configuração do Telescope + extensões
-            └── ...          # Outros plugins
+            ├── alpha.lua
+            ├── treesitter.lua
+            ├── telescope.lua
+            ├── nvim-tree.lua
+            ├── formatting.lua
+            ├── linting.lua
+            ├── lsp
+            │   ├── mason.lua
+            │   ├── lspconfig.lua
+            │   ├── lspsaga.lua
+            │   └── rust.lua
+            └── ...
 ```
 
----
+## Requisitos no Arch Linux
 
-## ⚙️ Principais Arquivos
+Instale primeiro as dependencias principais do sistema:
+
+```bash
+sudo pacman -Syu
+sudo pacman -S --needed neovim git base-devel cmake unzip curl wget ripgrep fd nodejs npm python python-pip lazygit
+```
+
+Para clipboard no Wayland:
+
+```bash
+sudo pacman -S --needed wl-clipboard
+```
+
+Para clipboard no X11:
+
+```bash
+sudo pacman -S --needed xclip
+```
+
+Para icones corretos no terminal, instale e selecione uma Nerd Font no seu emulador de terminal:
+
+```bash
+sudo pacman -S --needed ttf-jetbrains-mono-nerd
+```
+
+Se voce nao usar Nerd Font, altere em `lua/martins/core/options.lua`:
+
+```lua
+vim.g.have_nerd_font = false
+```
+
+## Linguagens opcionais
+
+Algumas ferramentas so sao instaladas pelo Mason quando a linguagem existe no sistema.
+
+### Go
+
+Para usar `gopls`, `go.nvim` e ferramentas Go:
+
+```bash
+sudo pacman -S --needed go
+```
+
+Depois abra o Neovim e rode:
+
+```vim
+:MasonInstall gopls
+```
+
+Sem o executavel `go` no `PATH`, a configuracao nao tenta instalar `gopls` automaticamente para evitar erro ao abrir o Neovim.
+
+### Rust
+
+Para projetos Rust:
+
+```bash
+sudo pacman -S --needed rustup
+rustup default stable
+```
+
+O `rust-analyzer` pode ser instalado pelo Mason.
+
+### Python
+
+Python ja entra pelo pacote `python`. Servidores e ferramentas como `pyright`, `black`, `isort` e `pylint` sao gerenciados pelo Mason.
+
+Observacao: algumas ferramentas Python ainda podem nao aceitar Python muito novo. Se algum pacote falhar no Mason, confira:
+
+```vim
+:MasonLog
+```
+
+### C e C++
+
+Para C/C++:
+
+```bash
+sudo pacman -S --needed clang
+```
+
+O `clangd` e ferramentas relacionadas podem ser instalados pelo Mason.
+
+## Instalacao
+
+Clone o repositorio diretamente para a pasta de configuracao do Neovim:
+
+```bash
+git clone git@github.com:SilvaneiMartins/nvim-ide-linux.git ~/.config/nvim
+```
+
+Abra o Neovim:
+
+```bash
+nvim
+```
+
+Na primeira execucao, o `lazy.nvim` sera instalado automaticamente e os plugins serao baixados.
+
+Depois rode:
+
+```vim
+:Lazy sync
+:MasonUpdate
+```
+
+Se quiser instalar manualmente ferramentas comuns:
+
+```vim
+:Mason
+```
+
+## Arquivos principais
 
 ### `init.lua`
 
-Arquivo de entrada simples que apenas importa os módulos principais:
+Ponto de entrada da configuracao. Tambem ajusta o shell conforme o sistema operacional:
 
-```lua
-require("martins.core")
-require("martins.lazy")
+- `cmd.exe` somente no Windows
+- `bash` no Linux quando disponivel
+- `sh` como fallback
+
+Isso evita erros como:
+
+```text
+Process failed to start: no such file or directory: "cmd.exe"
 ```
 
-### `core/options.lua`
+### `lua/martins/lazy.lua`
 
-Define as opções globais do Neovim:
+Inicializa o `lazy.nvim`, importa os plugins de `lua/martins/plugins` e configura comportamento global do gerenciador.
 
--   Numeração relativa e absoluta (`relativenumber`, `number`)
--   Indentação com 2 espaços (`tabstop`, `shiftwidth`, `expandtab`)
--   Desabilita quebra de linha automática (`wrap = false`)
--   Ajustes de busca (`ignorecase`, `smartcase`)
--   Linha do cursor habilitada (`cursorline = true`)
--   Ativa true colors (`termguicolors = true`)
--   Sempre mostra coluna de sinais (`signcolumn = "yes"`)
--   Copiar/colar integrado com o sistema (`clipboard:append("unnamedplus")`)
--   Splits abrindo à direita/abaixo
--   `swapfile` desabilitado
+### `lua/martins/core/options.lua`
 
-### `core/keymaps.lua`
+Define opcoes do editor:
 
-Define atalhos úteis:
+- Numeracao relativa e absoluta
+- Indentacao com 4 espacos
+- Clipboard integrado com o sistema
+- `termguicolors`
+- `cursorline`
+- `undofile`
+- Splits abrindo para direita/baixo
+- `swapfile` desabilitado
+- Flag `vim.g.have_nerd_font`
 
--   `jk` → sai do modo insert
--   `<leader>nh` → limpa highlights da busca
--   `<leader>+` / `<leader>-` → incrementa/decrementa número
--   `<leader>sv` / `<leader>sh` / `<leader>se` / `<leader>sx` → gerencia splits
--   `<leader>to` / `<leader>tx` / `<leader>tn` / `<leader>tp` / `<leader>tf` → gerencia abas
+### `lua/martins/core/keymaps.lua`
 
-### `plugins/lazy.lua`
+Atalhos globais principais:
 
--   Clona e carrega o **lazy.nvim** se não existir
--   Configura:
+```text
+<Space>         leader
+jk              sair do modo insert
+<Esc>           limpar highlight da busca
+<leader>sv      split vertical
+<leader>sh      split horizontal
+<leader>sx      fechar split
+<C-h/j/k/l>     navegar entre janelas
+<leader>to      nova aba
+<leader>tx      fechar aba
+```
 
-    -   `checker` (verificação de updates)
-    -   `change_detection` (notificação de alterações)
-    -   `install.colorscheme` para já baixar temas
-    -   Desativa plugins embutidos do Vim que não são necessários (melhora a performance)
+### `lua/martins/plugins/lsp/mason.lua`
 
--   Importa automaticamente as configurações da pasta `lua/martins/plugins/`
+Configura:
 
-### `plugins/lspconfig.lua`
+- `mason.nvim`
+- `mason-lspconfig.nvim`
+- `mason-tool-installer.nvim`
 
--   Configuração de todos os **LSPs** via `nvim-lspconfig`
--   Integração com **nvim-cmp** através de `cmp_nvim_lsp.default_capabilities()`
--   Keymaps centralizados em `on_attach`
--   Servidores configurados:
+Instala automaticamente servidores e ferramentas quando as dependencias do sistema existem. Go e CMake recebem tratamento condicional para evitar erros de inicializacao em ambientes incompletos.
 
-    -   `ts_ls` (TypeScript / JavaScript)
-    -   `html`
-    -   `cssls`
-    -   `tailwindcss`
-    -   `svelte` (com autocmd para reload ao salvar `.js`/`.ts`)
-    -   `graphql`
-    -   `emmet_ls`
-    -   `prismals` (requer `npm install -g @prisma/language-server`)
-    -   `pyright`
-    -   `eslint`
+### `lua/martins/plugins/lsp/lspconfig.lua`
 
--   `lua_ls` configurado para reconhecer `vim` como global e com suporte ao **neodev.nvim**
+Configura os servidores LSP, capacidades, diagnostics e keymaps por linguagem.
 
-### `plugins/cmp.lua`
+### `lua/martins/plugins/treesitter.lua`
 
--   Configuração completa do **nvim-cmp**
--   Integração com:
+Configura `nvim-treesitter` na branch `master`, compativel com a API:
 
-    -   `LuaSnip` (snippets)
-    -   `cmp-nvim-lsp` (LSP)
-    -   `cmp-buffer` (texto do buffer)
-    -   `cmp-path` (paths de arquivos)
-    -   `cmp-nvim-lua` (API do Neovim em Lua)
-    -   `friendly-snippets` (snippets prontos)
-    -   `lspkind.nvim` (ícones estilo VSCode)
+```lua
+require("nvim-treesitter.configs")
+```
 
--   Keymaps úteis:
+Se houver problemas com parsers:
 
-    -   `<C-k>` / `<C-j>` → navegar entre sugestões
-    -   `<Tab>` / `<S-Tab>` → navegar/expandir snippet
-    -   `<C-Space>` → abrir menu de autocomplete
-    -   `<CR>` → confirmar sugestão selecionada
+```vim
+:TSUpdate
+```
 
--   `ghost_text` habilitado para preview inline
+### `lua/martins/plugins/alpha.lua`
 
-### `plugins/telescope.lua`
+Dashboard inicial. Usa Nerd Font quando `vim.g.have_nerd_font = true` e fallback simples quando estiver `false`.
 
--   Configuração do **Telescope** com ícones e keymaps personalizados
--   Integração com **trouble.nvim**
--   Integração com extensão **telescope-fzf-native.nvim** (no Windows usar build com **CMake**)
--   Uso de `pcall(telescope.load_extension, "fzf")` para evitar erro se a DLL não estiver compilada
+### `lua/martins/plugins/telescope.lua`
 
-### `plugins/mason.lua`
+Configura busca de arquivos, texto, buffers, ajuda e TODOs.
 
--   Configuração do **mason.nvim**, **mason-lspconfig.nvim** e **mason-tool-installer.nvim**
--   `ensure_installed` garante que servidores LSP e ferramentas são instalados automaticamente
--   ⚠️ Importante: use `automatic_installation = true` (não mais `{ enable = true }`)
--   Inclui servidores: `ts_ls`, `lua_ls`, `html`, `cssls`, `tailwindcss`, `svelte`, `graphql`, `emmet_ls`, `prismals`, `pyright`, `eslint`
--   Inclui ferramentas: `prettier`, `stylua`, `isort`, `black`, `pylint`, `eslint_d`
+Atalhos principais:
 
-> **Nota:** para usar o `prismals`, instale o servidor manualmente:
->
-> ```bash
-> npm install -g @prisma/language-server
-> ```
+```text
+<leader>ff      buscar arquivos
+<leader>fg      buscar texto
+<leader>fb      buffers abertos
+<leader>fh      help tags
+<leader>fo      arquivos recentes
+<leader>fk      keymaps
+<leader>ft      TODOs
+```
 
----
+## Comandos uteis
 
-## 🚀 Passos pós-instalação
+```vim
+:Lazy           gerenciar plugins
+:Lazy sync      sincronizar plugins
+:Lazy update    atualizar plugins
+:Mason          gerenciar LSPs e ferramentas
+:MasonLog       ver logs do Mason
+:checkhealth    diagnostico geral do Neovim
+:TSUpdate       atualizar parsers do Treesitter
+```
 
-1. Certifique-se de ter **Neovim 0.9 ou 0.10+**.
-2. Instale as ferramentas de build (Windows: `winget install Microsoft.VisualStudio.2022.BuildTools` e `winget install Kitware.CMake`).
-3. Compile o **telescope-fzf-native.nvim**:
+## Solucao de problemas
 
-    ```powershell
-    cd $env:LOCALAPPDATA/nvim-data/lazy/telescope-fzf-native.nvim
-    Remove-Item build -Recurse -Force
-    cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release
-    cmake --build build --config Release
-    ```
+### Icones aparecem como quadrados
 
-4. No Neovim, rode:
+Instale uma Nerd Font e selecione essa fonte no terminal:
 
-    ```vim
-    :Lazy sync
-    :MasonUpdate
-    ```
+```bash
+sudo pacman -S --needed ttf-jetbrains-mono-nerd
+```
 
-5. Configure sua fonte no terminal para uma **Nerd Font** (ex: _FiraCode Nerd Font_) para que os ícones do `lspkind` e do `nvim-tree` apareçam.
+Ou desative os icones Nerd Font:
 
----
+```lua
+vim.g.have_nerd_font = false
+```
 
-Com isso sua configuração deve ficar estável tanto no **Windows** quanto em **Linux/macOS**, com suporte completo a LSP, autocompletar e busca com o Telescope. 🎉
+### Mason falha ao instalar `gopls`
 
----
+Instale Go:
 
-👉 Quer que eu prepare também um **guia de uso rápido** (atalhos principais + como abrir Telescope, salvar sessão, naveg
+```bash
+sudo pacman -S --needed go
+```
+
+Depois:
+
+```vim
+:MasonInstall gopls
+```
+
+### Erro com `cmd.exe` no Linux
+
+Verifique se `init.lua` nao esta forcando `vim.o.shell = "cmd.exe"` sem condicao. Nesta configuracao, o shell e definido automaticamente para `bash` no Linux.
+
+### Treesitter nao encontra `nvim-treesitter.configs`
+
+Esta configuracao fixa o `nvim-treesitter` na branch `master`. Se voce atualizar manualmente para `main`, a API antiga pode quebrar.
+
+Para restaurar:
+
+```vim
+:Lazy restore nvim-treesitter
+```
+
+Ou confira `lua/martins/plugins/treesitter.lua`.
+
+## Atualizacao recomendada
+
+Para atualizar a IDE:
+
+```bash
+cd ~/.config/nvim
+git pull
+nvim
+```
+
+Dentro do Neovim:
+
+```vim
+:Lazy sync
+:MasonUpdate
+:checkhealth
+```
+
+## Observacoes
+
+Este repositorio e voltado para Linux/Arch Linux. Ele pode funcionar em outras distribuicoes, mas os comandos de instalacao deste README foram escritos para `pacman` e ambiente Linux.
